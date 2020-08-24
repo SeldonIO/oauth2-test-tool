@@ -55,28 +55,43 @@ func init() {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
-	clientID = os.Getenv("AZURE_AD_CLIENT_ID")
+	clientID = GetEnv("AZURE_AD_CLIENT_ID","")
 	if clientID == "" {
 		log.Fatal("AZURE_AD_CLIENT_ID must be set.")
 	}
 
+	secret := GetEnv("OIDC_SECRET","") // no client secret by default
+	authUrl := GetEnv("AUTH_URL","https://login.microsoftonline.com/common/oauth2/authorize")
+	tokenUrl := GetEnv("TOKEN_URL","https://login.microsoftonline.com/common/oauth2/token")
+	scopes := GetEnv("OIDC_SCOPES","User.Read")
+
 	config = &oauth2.Config{
 		ClientID:     clientID,
-		ClientSecret: "", // no client secret
+		ClientSecret: secret,
 		RedirectURL:  redirectURI,
 
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://login.microsoftonline.com/common/oauth2/authorize",
-			TokenURL: "https://login.microsoftonline.com/common/oauth2/token",
+			AuthURL:  authUrl,
+			TokenURL: tokenUrl,
 		},
 
-		Scopes: []string{"User.Read"},
+		Scopes: []string{scopes},
 	}
 
 	http.Handle("/", handle(IndexHandler))
 	http.Handle("/callback", handle(CallbackHandler))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func GetEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		log.Println("ENV VAR DEFAULTED "+key+": "+defaultValue)
+		return defaultValue
+	}
+	log.Println("ENV VAR "+key+": "+value)
+	return value
 }
 
 type handle func(w http.ResponseWriter, req *http.Request) error

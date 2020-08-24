@@ -1,0 +1,5 @@
+export AZURE_AD_CLIENT_ID="kubeflow-oidc-authservice"
+export AUTH_URL="http://188.166.138.216/dex/auth"
+export TOKEN_URL="http://188.166.138.216/dex/token"
+export OIDC_SECRET=""
+export OIDC_SCOPES="profile email groups"
