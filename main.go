@@ -20,10 +20,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const (
-	redirectURI string = "http://localhost:8080/callback"
-)
-
 // Authentication + Encryption key pairs
 var sessionStoreKeyPairs = [][]byte{
 	[]byte("something-very-secret"),
@@ -64,6 +60,7 @@ func main() {
 	authUrl := GetEnv("AUTH_URL","https://login.microsoftonline.com/common/oauth2/authorize")
 	tokenUrl := GetEnv("TOKEN_URL","https://login.microsoftonline.com/common/oauth2/token")
 	scopes := GetEnv("OIDC_SCOPES","User.Read")
+	redirectURI := GetEnv("REDIRECT_URI","http://localhost:8080/callback")
 
 	config = &oauth2.Config{
 		ClientID:     clientID,
@@ -78,8 +75,9 @@ func main() {
 		Scopes: []string{scopes},
 	}
 
+	callbackUri := GetEnv("CALLBACK_PATH","/callback")
 	http.Handle("/", handle(IndexHandler))
-	http.Handle("/callback", handle(CallbackHandler))
+	http.Handle(callbackUri, handle(CallbackHandler))
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -199,7 +197,7 @@ func CallbackHandler(w http.ResponseWriter, req *http.Request) error {
 	form.Set("grant_type", "authorization_code")
 	form.Set("client_id", clientID)
 	form.Set("code", req.FormValue("code"))
-	form.Set("redirect_uri", redirectURI)
+	form.Set("redirect_uri",GetEnv("REDIRECT_URI","http://localhost:8080/callback"))
 	form.Set("resource", "https://graph.windows.net")
 
 	tokenReq, err := http.NewRequest(http.MethodPost, config.Endpoint.TokenURL, strings.NewReader(form.Encode()))
