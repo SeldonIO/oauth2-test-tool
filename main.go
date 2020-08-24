@@ -51,16 +51,16 @@ func init() {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
-	clientID = GetEnv("AZURE_AD_CLIENT_ID","")
+	clientID = GetEnv("CLIENT_ID","")
 	if clientID == "" {
-		log.Fatal("AZURE_AD_CLIENT_ID must be set.")
+		log.Fatal("CLIENT_ID must be set.")
 	}
 
-	secret := GetEnv("OIDC_SECRET","") // no client secret by default
+	secret := GetEnv("CLIENT_SECRET","") // no client secret by default
 	authUrl := GetEnv("AUTH_URL","https://login.microsoftonline.com/common/oauth2/authorize")
 	tokenUrl := GetEnv("TOKEN_URL","https://login.microsoftonline.com/common/oauth2/token")
 	scopes := GetEnv("OIDC_SCOPES","User.Read")
-	redirectURI := GetEnv("REDIRECT_URI","http://localhost:8080/callback")
+	redirectURI := GetEnv("REDIRECT_URL","http://localhost:8080/seldon-deploy/auth/callback")
 
 	config = &oauth2.Config{
 		ClientID:     clientID,
@@ -75,11 +75,12 @@ func main() {
 		Scopes: []string{scopes},
 	}
 
-	callbackUri := GetEnv("CALLBACK_PATH","/callback")
-	http.Handle("/", handle(IndexHandler))
+	callbackUri := GetEnv("CALLBACK_PATH","/seldon-deploy/auth/callback")
+	http.Handle("/seldon-deploy", handle(IndexHandler))
 	http.Handle(callbackUri, handle(CallbackHandler))
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := GetEnv("PORT","8000")
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func GetEnv(key, defaultValue string) string {
@@ -130,16 +131,21 @@ func IndexHandler(w http.ResponseWriter, req *http.Request) error {
 		sessions.Save(req, w)
 	} else {
 		if v, ok := session.Values["token"]; ok {
-			token = v.(*oauth2.Token)
+			if v!= nil {
+				token = v.(*oauth2.Token)
+			}
 		}
 	}
+
+	resourceURI := GetEnv("RESOURCE_URI","")
+	resourceURIParam := oauth2.SetAuthURLParam("resource", resourceURI)
 
 	var data = struct {
 		Token   *oauth2.Token
 		AuthURL string
 	}{
 		Token:   token,
-		AuthURL: config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline),
+		AuthURL: config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline, resourceURIParam),
 	}
 
 	return indexTempl.Execute(w, &data)
@@ -158,7 +164,8 @@ var indexTempl = template.Must(template.New("").Parse(`<!DOCTYPE html>
         <h1>Azure AD OAuth2 Example</h1>
 {{with .Token}}
         <div id="displayName"></div>
-        <a href="/?logout=true">Logout</a>
+		<div style="white-space: nowrap">{{.AccessToken}}</div>
+        <a href="/seldon-deploy?logout=true">Logout</a>
 {{else}}
         <a href="{{$.AuthURL}}">Login</a>
 {{end}}
@@ -197,9 +204,9 @@ func CallbackHandler(w http.ResponseWriter, req *http.Request) error {
 	form.Set("grant_type", "authorization_code")
 	form.Set("client_id", clientID)
 	form.Set("code", req.FormValue("code"))
-	form.Set("redirect_uri",GetEnv("REDIRECT_URI","http://localhost:8080/callback"))
-	form.Set("resource", "https://graph.windows.net")
-
+	form.Set("redirect_uri",GetEnv("REDIRECT_URL","http://localhost:8000/seldon-deploy/callback"))
+	form.Set("resource", GetEnv("RESOURCE_URI","https://graph.windows.net"))
+	form.Set("client_secret",GetEnv("CLIENT_SECRET",""))
 	tokenReq, err := http.NewRequest(http.MethodPost, config.Endpoint.TokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return fmt.Errorf("error creating token request: %v", err)
@@ -221,12 +228,13 @@ func CallbackHandler(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("error decoding JSON response: %v", err)
 	}
 
+	spew.Dump(token)
 	session.Values["token"] = &token
 	if err := sessions.Save(req, w); err != nil {
 		return fmt.Errorf("error saving session: %v", err)
 	}
 
-	http.Redirect(w, req, "/", http.StatusFound)
+	http.Redirect(w, req, "/seldon-deploy", http.StatusFound)
 	return nil
 }
 

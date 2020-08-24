@@ -8,5 +8,12 @@ Run locally with `source env.sh && ./go-azure-ad`
 Build and run docker with 
 ```
 docker build -t ryandawsonuk/go-azure-ad:test .
-docker run -p 8080:8080 ryandawsonuk/go-azure-ad:test --env-file env.list
+docker run -p 8000:8000 ryandawsonuk/go-azure-ad:test --env-file env.list
+```
+
+Side Note On Running Against Dex
+```
+kubectl get configmap dex -n auth -o jsonpath='{.data.config\.yaml}' > dex-config.yaml
+kubectl create cm dex --from-file=config.yaml=dex-config.yaml --dry-run -oyaml | kubectl apply -f - --namespace=auth
+kubectl delete pods -n auth -l app=dex
 ```
