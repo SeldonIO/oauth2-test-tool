@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 
 	_ "golang.org/x/net/context"
 	"golang.org/x/oauth2"
+
 )
 
 // Authentication + Encryption key pairs
@@ -154,14 +156,14 @@ func IndexHandler(w http.ResponseWriter, req *http.Request) error {
 var indexTempl = template.Must(template.New("").Parse(`<!DOCTYPE html>
 <html>
   <head>
-    <title>Azure AD OAuth2 Example</title>
+    <title>OAuth2 Test Tool</title>
 
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
   </head>
   <body class="container-fluid">
     <div class="row">
       <div class="col-xs-4 col-xs-offset-4">
-        <h1>Azure AD OAuth2 Example</h1>
+        <h1>OAuth2 Test Tool</h1>
 {{with .Token}}
         <div id="displayName"></div>
 		<div style="white-space: nowrap">{{.AccessToken}}</div>
@@ -223,12 +225,24 @@ func CallbackHandler(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("token response was %s", resp.Status)
 	}
 
+	log.Println("raw token")
+	var data string
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	data = string(bodyBytes)
+	spew.Dump(data)
+
 	var token oauth2.Token
-	if err := json.NewDecoder(resp.Body).Decode(&token); err != nil {
+	if err := json.Unmarshal(bodyBytes,&token); err != nil {
 		return fmt.Errorf("error decoding JSON response: %v", err)
 	}
-
+	log.Println("decoded token")
 	spew.Dump(token)
+
+
+
 	session.Values["token"] = &token
 	if err := sessions.Save(req, w); err != nil {
 		return fmt.Errorf("error saving session: %v", err)
