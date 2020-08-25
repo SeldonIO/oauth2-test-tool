@@ -57,6 +57,8 @@ func main() {
 
 	ctx := context.Background()
 
+	basePath := GetEnv("BASE_PATH","/seldon-deploy/")
+
 	clientID = GetEnv("CLIENT_ID","")
 	if clientID == "" {
 		log.Fatal("CLIENT_ID must be set.")
@@ -100,8 +102,7 @@ func main() {
 	}
 
 	callbackUri := GetEnv("CALLBACK_PATH","/seldon-deploy/auth/callback")
-	http.Handle("/seldon-deploy/", handle(IndexHandler))
-	http.Handle("/seldon-deploy", handle(IndexHandler))
+	http.Handle(basePath, handle(IndexHandler))
 	http.Handle(callbackUri, handle(CallbackHandler))
 	http.Handle("/seldon-deploy/api/status", handle(StatusHandler))
 
@@ -172,12 +173,15 @@ func IndexHandler(w http.ResponseWriter, req *http.Request) error {
 	resourceURI := GetEnv("RESOURCE_URI","")
 	resourceURIParam := oauth2.SetAuthURLParam("resource", resourceURI)
 
+	logoutPath := GetEnv("LOGOUT_PATH","/seldon-deploy")
 	var data = struct {
 		Token   *oauth2.Token
 		AuthURL string
+		LogoutPath string
 	}{
 		Token:   token,
 		AuthURL: config.AuthCodeURL(SessionState(session), oauth2.AccessTypeOnline, resourceURIParam),
+		LogoutPath: logoutPath,
 	}
 
 	return indexTempl.Execute(w, &data)
@@ -194,10 +198,10 @@ var indexTempl = template.Must(template.New("").Parse(`<!DOCTYPE html>
     <div class="row">
       <div class="col-xs-4 col-xs-offset-4">
         <h1>OAuth2 Test Tool</h1>
-{{with .Token}}
+{{if .Token}}
         <div id="displayName"></div>
-		<div style="white-space: nowrap">{{.AccessToken}}</div>
-        <a href="/seldon-deploy?logout=true">Logout</a>
+		<div style="white-space: nowrap">{{$.Token.AccessToken}}</div>
+        <a href="{{.LogoutPath}}?logout=true">Logout</a>
 {{else}}
         <a href="{{$.AuthURL}}">Login</a>
 {{end}}
@@ -278,7 +282,7 @@ func CallbackHandler(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("error saving session: %v", err)
 	}
 
-	http.Redirect(w, req, "/seldon-deploy", http.StatusFound)
+	http.Redirect(w, req, GetEnv("BASE_PATH","/seldon-deploy/"), http.StatusFound)
 	return nil
 }
 
