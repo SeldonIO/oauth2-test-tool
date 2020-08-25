@@ -14,6 +14,8 @@ OIDC_PROVIDER is optional. If set not set then AUTH_URL and TOKEN_URL will be us
 
 CLIENT_SECRET is also optional as it is not always required.
 
+See env files for more. Note that BASE_PATH defaults to '/seldon-deploy/' and LOGOUT_PATH defaults to '/seldon-deploy'. The env vars can be changed to run the app on another path.
+
 ## Debug Info
 
 The access token is displayed if the login is successful. The full raw token, including the id token, is printed in the logs.
