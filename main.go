@@ -17,7 +17,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/sessions"
 
-	_ "golang.org/x/net/context"
+	oidc "github.com/coreos/go-oidc"
+
+	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 
 )
@@ -53,14 +55,37 @@ func init() {
 func main() {
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
+	ctx := context.Background()
+
 	clientID = GetEnv("CLIENT_ID","")
 	if clientID == "" {
 		log.Fatal("CLIENT_ID must be set.")
 	}
 
 	secret := GetEnv("CLIENT_SECRET","") // no client secret by default
-	authUrl := GetEnv("AUTH_URL","https://login.microsoftonline.com/common/oauth2/authorize")
-	tokenUrl := GetEnv("TOKEN_URL","https://login.microsoftonline.com/common/oauth2/token")
+	oidcProvider := GetEnv("OIDC_PROVIDER","")
+	var provider *oidc.Provider
+	if oidcProvider != "" {
+		log.Println("oidcProvider is "+oidcProvider)
+		log.Println(len(oidcProvider))
+		var err interface{}
+		provider, err = oidc.NewProvider(ctx, oidcProvider)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Println("OIDC_PROVIDER not set, using AUTH_URL and TOKEN_URL")
+	}
+
+	//used as fallback if no OIDC_PROVIDER
+	endpoint := oauth2.Endpoint{
+		AuthURL:  GetEnv("AUTH_URL","https://login.microsoftonline.com/common/oauth2/authorize"),
+		TokenURL: GetEnv("TOKEN_URL","https://login.microsoftonline.com/common/oauth2/token"),
+	}
+
+	if provider != nil {
+		endpoint = provider.Endpoint()
+	}
 	scopes := GetEnv("OIDC_SCOPES","User.Read")
 	redirectURI := GetEnv("REDIRECT_URL","http://localhost:8080/seldon-deploy/auth/callback")
 
@@ -69,10 +94,7 @@ func main() {
 		ClientSecret: secret,
 		RedirectURL:  redirectURI,
 
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  authUrl,
-			TokenURL: tokenUrl,
-		},
+		Endpoint: endpoint,
 
 		Scopes: []string{scopes},
 	}
