@@ -100,8 +100,10 @@ func main() {
 	}
 
 	callbackUri := GetEnv("CALLBACK_PATH","/seldon-deploy/auth/callback")
+	http.Handle("/seldon-deploy/", handle(IndexHandler))
 	http.Handle("/seldon-deploy", handle(IndexHandler))
 	http.Handle(callbackUri, handle(CallbackHandler))
+	http.Handle("/seldon-deploy/api/status", handle(StatusHandler))
 
 	port := GetEnv("PORT","8000")
 	log.Fatal(http.ListenAndServe(":"+port, nil))
@@ -146,6 +148,12 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%d: %s", e.Code, e.Message)
 }
 
+func StatusHandler(w http.ResponseWriter, req *http.Request) error {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write([]byte("all is well"))
+	return nil
+}
 func IndexHandler(w http.ResponseWriter, req *http.Request) error {
 	session, _ := store.Get(req, "session")
 
