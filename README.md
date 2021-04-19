@@ -30,8 +30,8 @@ Run locally with `source env.sh && ./go-azure-ad`
  
 Build and run docker with 
 ```
-docker build -t ryandawsonuk/go-azure-ad:test .
-docker run --env-file env.list -p 8000:8000 ryandawsonuk/go-azure-ad:test
+docker build -t seldonio/oauth-test-tool:dev .
+docker run --env-file env.list -p 8000:8000 seldonio/oauth-test-tool:dev
 ```
 
 # Kubernetes
